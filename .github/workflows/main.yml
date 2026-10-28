@@ -1,0 +1,52 @@
+name: Android APK Olustur
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Depodaki Dosyalari Indir
+        uses: actions/checkout@v4
+
+      - name: Dosya Yapisini Otomatik Hazirla
+        run: |
+          if ls *.zip >/dev/null 2>&1; then
+            for z in *.zip; do unzip -o "$z" -d unzipped_kit || true; done
+            if [ -d "unzipped_kit/android-native-project" ] && [ ! -d "android-native-project" ]; then
+              cp -r unzipped_kit/android-native-project ./android-native-project
+            fi
+          fi
+          FOUND_PROJ=$(find . -maxdepth 3 -type d -name "android-native-project" | head -n 1)
+          if [ -n "$FOUND_PROJ" ] && [ "$FOUND_PROJ" != "./android-native-project" ]; then
+            cp -r "$FOUND_PROJ" ./android-native-project
+          fi
+          FOUND_HTML=$(find . -maxdepth 3 -name "interval_timer_app.html" -o -name "index.html" | head -n 1)
+          if [ -n "$FOUND_HTML" ] && [ -d "android-native-project/app/src/main/assets" ]; then
+            cp "$FOUND_HTML" android-native-project/app/src/main/assets/index.html
+          fi
+
+      - name: Java 17 Kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Gradle Kur
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: APK Dosyasini Derle
+        working-directory: ./android-native-project
+        run: gradle assembleDebug
+
+      - name: APK Dosyasini Isimlendir
+        run: |
+          cp android-native-project/app/build/outputs/apk/debug/app-debug.apk ./IntervalTimer-TR.apk
+
+      - name: Indirilebilir APK Paketini Yukle
+        uses: actions/upload-artifact@v4
+        with:
+          name: IntervalTimer-Android-APK
+          path: ./IntervalTimer-TR.apk
